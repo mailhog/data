@@ -5,6 +5,6 @@ MailHog data library [![GoDoc](https://godoc.org/github.com/mailhog/data?status.
 
 ### Licence
 
-Copyright ©‎ 2014, Ian Kent (http://iankent.uk)
+Copyright ©‎ 2014-2015, Ian Kent (http://iankent.uk)
 
 Released under MIT license, see [LICENSE](LICENSE.md) for details.

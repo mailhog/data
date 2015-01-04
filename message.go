@@ -40,6 +40,7 @@ type Message struct {
 	Content *Content
 	Created time.Time
 	MIME    *MIMEBody // FIXME refactor to use Content.MIME
+	Raw     *SMTPMessage
 }
 
 // Path represents an SMTP forward-path or return-path
@@ -85,6 +86,7 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 		To:      arr,
 		Content: ContentFromString(m.Data),
 		Created: time.Now(),
+		Raw:     m,
 	}
 
 	if msg.Content.IsMIME() {
@@ -92,6 +94,7 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 		msg.MIME = msg.Content.ParseMIMEBody()
 	}
 
+	// FIXME shouldn't be setting Message-ID, its a client thing
 	msg.Content.Headers["Message-ID"] = []string{string(id)}
 	msg.Content.Headers["Received"] = []string{"from " + m.Helo + " by " + hostname + " (Go-MailHog)\r\n          id " + string(id) + "; " + time.Now().Format(time.RFC1123Z)}
 	msg.Content.Headers["Return-Path"] = []string{"<" + m.From + ">"}
