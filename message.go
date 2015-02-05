@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
+	"mime"
 	"strings"
 	"time"
 )
@@ -207,30 +208,9 @@ func ContentFromString(data string) *Content {
 // extractBoundary extract boundary string in contentType.
 // It returns empty string if no valid boundary found
 func extractBoundary(contentType string) string {
-	var boundary string
-	// first searching for the 'boundary=' token
-	boundaryIdx := strings.Index(contentType, "boundary=")
-	if boundaryIdx > -1 && len(contentType) > boundaryIdx+9 {
-		// then id check if what is the next char after '='
-		firstCharIdx := boundaryIdx + 9
-		if contentType[firstCharIdx] == '"' {
-			// ok, searching for the close quote
-			closeQuoteIdx := strings.Index(contentType[firstCharIdx+1:], "\"")
-			if closeQuoteIdx > -1 {
-				boundary = contentType[firstCharIdx+1 : firstCharIdx+closeQuoteIdx+1]
-			}
-		} else {
-			// that mean the boundary not quoted, check for ';' or 'space'
-			// or any kind of newline
-			terminateIdx := strings.IndexAny(contentType[firstCharIdx:], "; \r\n")
-			if terminateIdx > -1 {
-				boundary = contentType[firstCharIdx : firstCharIdx+terminateIdx]
-			} else {
-				// the boundary is the last param of contentType
-				boundary = contentType[firstCharIdx:]
-			}
-		}
+	_, params, err := mime.ParseMediaType(contentType)
+	if err == nil {
+		return params["boundary"]
 	}
-
-	return boundary
+	return ""
 }
