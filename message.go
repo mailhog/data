@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
-	"regexp"
+	"mime"
 	"strings"
 	"time"
 )
@@ -116,14 +116,14 @@ func (content *Content) ParseMIMEBody() *MIMEBody {
 
 	if hdr, ok := content.Headers["Content-Type"]; ok {
 		if len(hdr) > 0 {
-			re := regexp.MustCompile("boundary=\"([^\"]+)\"")
-			match := re.FindStringSubmatch(hdr[0])
-			if len(match) < 2 {
+			boundary := extractBoundary(hdr[0])
+			var p []string
+			if len(boundary) > 0 {
+				p = strings.Split(content.Body, "--"+boundary)
+				log.Printf("Got boundary: %s", boundary)
+			} else {
 				log.Printf("Boundary not found: %s", hdr[0])
 			}
-			log.Printf("Got boundary: %s", match[1])
-
-			p := strings.Split(content.Body, "--"+match[1])
 
 			for _, s := range p {
 				if len(s) > 0 {
@@ -203,4 +203,14 @@ func ContentFromString(data string) *Content {
 		Headers: h,
 		Body:    x[0],
 	}
+}
+
+// extractBoundary extract boundary string in contentType.
+// It returns empty string if no valid boundary found
+func extractBoundary(contentType string) string {
+	_, params, err := mime.ParseMediaType(contentType)
+	if err == nil {
+		return params["boundary"]
+	}
+	return ""
 }
