@@ -119,6 +119,9 @@ func (content *Content) ParseMIMEBody() *MIMEBody {
 			var p []string
 			if len(boundary) > 0 {
 				p = strings.Split(content.Body, "--"+boundary)
+				log.Printf("Got boundary: %s", boundary)
+			} else {
+				log.Printf("Boundary not found: %s", hdr[0])
 			}
 
 			for _, s := range p {
