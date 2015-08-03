@@ -9,6 +9,18 @@ import (
 	"time"
 )
 
+// LogHandler is called for each log message. If nil, log messages will
+// be output using log.Printf instead.
+var LogHandler func(message string, args ...interface{})
+
+func logf(message string, args ...interface{}) {
+	if LogHandler != nil {
+		LogHandler(message, args...)
+	} else {
+		log.Printf(message, args...)
+	}
+}
+
 // MessageID represents the ID of an SMTP message including the hostname part
 type MessageID string
 
@@ -90,7 +102,7 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 	}
 
 	if msg.Content.IsMIME() {
-		log.Printf("Parsing MIME body")
+		logf("Parsing MIME body")
 		msg.MIME = msg.Content.ParseMIMEBody()
 	}
 
@@ -120,16 +132,16 @@ func (content *Content) ParseMIMEBody() *MIMEBody {
 			var p []string
 			if len(boundary) > 0 {
 				p = strings.Split(content.Body, "--"+boundary)
-				log.Printf("Got boundary: %s", boundary)
+				logf("Got boundary: %s", boundary)
 			} else {
-				log.Printf("Boundary not found: %s", hdr[0])
+				logf("Boundary not found: %s", hdr[0])
 			}
 
 			for _, s := range p {
 				if len(s) > 0 {
 					part := ContentFromString(strings.Trim(s, "\r\n"))
 					if part.IsMIME() {
-						log.Printf("Parsing inner MIME body")
+						logf("Parsing inner MIME body")
 						part.MIME = part.ParseMIMEBody()
 					}
 					parts = append(parts, part)
@@ -171,7 +183,7 @@ func PathFromString(path string) *Path {
 
 // ContentFromString parses SMTP content into separate headers and body
 func ContentFromString(data string) *Content {
-	log.Printf("Parsing Content from string: '%s'", data)
+	logf("Parsing Content from string: '%s'", data)
 	x := strings.SplitN(data, "\r\n\r\n", 2)
 	h := make(map[string][]string, 0)
 
@@ -189,7 +201,7 @@ func ContentFromString(data string) *Content {
 				h[key] = []string{value}
 				lastHdr = key
 			} else {
-				log.Printf("Found invalid header: '%s'", hdr)
+				logf("Found invalid header: '%s'", hdr)
 			}
 		}
 		return &Content{
