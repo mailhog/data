@@ -187,6 +187,9 @@ func ContentFromString(data string) *Content {
 	x := strings.SplitN(data, "\r\n\r\n", 2)
 	h := make(map[string][]string, 0)
 
+	// FIXME this fails if the message content has no headers - specifically,
+	// if it doesn't contain \r\n\r\n
+
 	if len(x) == 2 {
 		headers, body := x[0], x[1]
 		hdrs := strings.Split(headers, "\r\n")
