@@ -1,8 +1,10 @@
 package data
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"io"
 	"log"
 	"mime"
 	"strings"
@@ -111,6 +113,37 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 	msg.Content.Headers["Received"] = []string{"from " + m.Helo + " by " + hostname + " (Go-MailHog)\r\n          id " + string(id) + "; " + time.Now().Format(time.RFC1123Z)}
 	msg.Content.Headers["Return-Path"] = []string{"<" + m.From + ">"}
 	return msg
+}
+
+// Bytes returns an io.Reader containing the raw message data
+func (m *SMTPMessage) Bytes() io.Reader {
+	var b = new(bytes.Buffer)
+
+	b.WriteString("HELO:<" + m.Helo + ">\r\n")
+	b.WriteString("FROM:<" + m.From + ">\r\n")
+	for _, t := range m.To {
+		b.WriteString("TO:<" + t + ">\r\n")
+	}
+	b.WriteString("\r\n")
+	b.WriteString(m.Data)
+
+	return b
+}
+
+// Bytes returns an io.Reader containing the raw message data
+func (m *Message) Bytes() io.Reader {
+	var b = new(bytes.Buffer)
+
+	for k, vs := range m.Content.Headers {
+		for _, v := range vs {
+			b.WriteString(k + ": " + v + "\r\n")
+		}
+	}
+
+	b.WriteString("\r\n")
+	b.WriteString(m.Content.Body)
+
+	return b
 }
 
 // IsMIME detects a valid MIME header
