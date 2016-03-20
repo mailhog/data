@@ -130,6 +130,33 @@ func (m *SMTPMessage) Bytes() io.Reader {
 	return b
 }
 
+// FromBytes returns a SMTPMessage from raw message bytes (as output by SMTPMessage.Bytes())
+func FromBytes(b []byte) *SMTPMessage {
+	msg := &SMTPMessage{}
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(l, "HELO:<") {
+			l = strings.TrimPrefix(l, "HELO:<")
+			l = strings.TrimSuffix(l, ">\r")
+			msg.Helo = l
+			continue
+		}
+		if strings.HasPrefix(l, "FROM:<") {
+			l = strings.TrimPrefix(l, "FROM:<")
+			l = strings.TrimSuffix(l, ">\r")
+			msg.From = l
+			continue
+		}
+		if strings.HasPrefix(l, "TO:<") {
+			l = strings.TrimPrefix(l, "TO:<")
+			l = strings.TrimSuffix(l, ">\r")
+			msg.To = append(msg.To, l)
+			continue
+		}
+		msg.Data += l + "\n"
+	}
+	return msg
+}
+
 // Bytes returns an io.Reader containing the raw message data
 func (m *Message) Bytes() io.Reader {
 	var b = new(bytes.Buffer)
