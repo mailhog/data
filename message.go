@@ -110,7 +110,7 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 
 	// FIXME shouldn't be setting Message-ID, its a client thing
 	msg.Content.Headers["Message-ID"] = []string{string(id)}
-	msg.Content.Headers["Received"] = []string{"from " + m.Helo + " by " + hostname + " (Go-MailHog)\r\n          id " + string(id) + "; " + time.Now().Format(time.RFC1123Z)}
+	msg.Content.Headers["Received"] = []string{"from " + m.Helo + " by " + hostname + " (MailHog)\r\n          id " + string(id) + "; " + time.Now().Format(time.RFC1123Z)}
 	msg.Content.Headers["Return-Path"] = []string{"<" + m.From + ">"}
 	return msg
 }
