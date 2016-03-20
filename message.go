@@ -263,7 +263,7 @@ func ContentFromString(data string) *Content {
 				// TODO multiple header fields
 				h[key] = []string{value}
 				lastHdr = key
-			} else {
+			} else if len(hdr) > 0 {
 				logf("Found invalid header: '%s'", hdr)
 			}
 		}
