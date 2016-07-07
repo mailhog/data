@@ -108,10 +108,42 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 		msg.MIME = msg.Content.ParseMIMEBody()
 	}
 
-	// FIXME shouldn't be setting Message-ID, its a client thing
-	msg.Content.Headers["Message-ID"] = []string{string(id)}
-	msg.Content.Headers["Received"] = []string{"from " + m.Helo + " by " + hostname + " (MailHog)\r\n          id " + string(id) + "; " + time.Now().Format(time.RFC1123Z)}
-	msg.Content.Headers["Return-Path"] = []string{"<" + m.From + ">"}
+	// find headers
+	var hasMessageID bool
+	var receivedHeaderName string
+	var returnPathHeaderName string
+
+	for k := range msg.Content.Headers {
+		if strings.ToLower(k) == "message-id" {
+			hasMessageID = true
+			continue
+		}
+		if strings.ToLower(k) == "received" {
+			receivedHeaderName = k
+			continue
+		}
+		if strings.ToLower(k) == "return-path" {
+			returnPathHeaderName = k
+			continue
+		}
+	}
+
+	if !hasMessageID {
+		msg.Content.Headers["Message-ID"] = []string{string(id)}
+	}
+
+	if len(receivedHeaderName) > 0 {
+		msg.Content.Headers[receivedHeaderName] = append(msg.Content.Headers[receivedHeaderName], "from "+m.Helo+" by "+hostname+" (MailHog)\r\n          id "+string(id)+"; "+time.Now().Format(time.RFC1123Z))
+	} else {
+		msg.Content.Headers["Received"] = []string{"from " + m.Helo + " by " + hostname + " (MailHog)\r\n          id " + string(id) + "; " + time.Now().Format(time.RFC1123Z)}
+	}
+
+	if len(returnPathHeaderName) > 0 {
+		msg.Content.Headers[returnPathHeaderName] = append(msg.Content.Headers[returnPathHeaderName], "<"+m.From+">")
+	} else {
+		msg.Content.Headers["Return-Path"] = []string{"<" + m.From + ">"}
+	}
+
 	return msg
 }
 
