@@ -231,6 +231,7 @@ func (content *Content) ParseMIMEBody() *MIMEBody {
 			var p []string
 			if len(boundary) > 0 {
 				p = strings.Split(content.Body, "--"+boundary)
+				p = p[1 : len(p)-1]
 				logf("Got boundary: %s", boundary)
 			} else {
 				logf("Boundary not found: %s", hdr[0])
