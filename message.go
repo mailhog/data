@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+	"io/ioutil"
 	"log"
 	"mime"
+	"net/mail"
 	"strings"
 	"time"
 )
@@ -283,39 +285,23 @@ func PathFromString(path string) *Path {
 // ContentFromString parses SMTP content into separate headers and body
 func ContentFromString(data string) *Content {
 	logf("Parsing Content from string: '%s'", data)
-	x := strings.SplitN(data, "\r\n\r\n", 2)
-	h := make(map[string][]string, 0)
 
-	// FIXME this fails if the message content has no headers - specifically,
-	// if it doesn't contain \r\n\r\n
-
-	if len(x) == 2 {
-		headers, body := x[0], x[1]
-		hdrs := strings.Split(headers, "\r\n")
-		var lastHdr = ""
-		for _, hdr := range hdrs {
-			if lastHdr != "" && (strings.HasPrefix(hdr, " ") || strings.HasPrefix(hdr, "\t")) {
-				h[lastHdr][len(h[lastHdr])-1] = h[lastHdr][len(h[lastHdr])-1] + hdr
-			} else if strings.Contains(hdr, ": ") {
-				y := strings.SplitN(hdr, ": ", 2)
-				key, value := y[0], y[1]
-				// TODO multiple header fields
-				h[key] = []string{value}
-				lastHdr = key
-			} else if len(hdr) > 0 {
-				logf("Found invalid header: '%s'", hdr)
-			}
-		}
-		return &Content{
-			Size:    len(data),
-			Headers: h,
-			Body:    body,
-		}
+	email, err := mail.ReadMessage(strings.NewReader(data))
+	if err != nil {
+		logf(err.Error())
+		return nil
 	}
+
+	body, err := ioutil.ReadAll(email.Body)
+	if err != nil {
+		logf(err.Error())
+		return nil
+	}
+
 	return &Content{
 		Size:    len(data),
-		Headers: h,
-		Body:    x[0],
+		Headers: email.Header,
+		Body:    string(body),
 	}
 }
 
