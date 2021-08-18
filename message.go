@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"mime"
+	"net/mail"
 	"strings"
 	"time"
 )
@@ -51,6 +52,7 @@ type Message struct {
 	ID      MessageID
 	From    *Path
 	To      []*Path
+	Bcc     []*Path
 	Content *Content
 	Created time.Time
 	MIME    *MIMEBody // FIXME refactor to use Content.MIME
@@ -94,11 +96,13 @@ func (m *SMTPMessage) Parse(hostname string) *Message {
 	}
 
 	id, _ := NewMessageID(hostname)
+	content := ContentFromString(m.Data)
 	msg := &Message{
 		ID:      id,
 		From:    PathFromString(m.From),
 		To:      arr,
-		Content: ContentFromString(m.Data),
+		Bcc:     extractBcc(arr, content),
+		Content: content,
 		Created: time.Now(),
 		Raw:     m,
 	}
@@ -327,4 +331,69 @@ func extractBoundary(contentType string) string {
 		return params["boundary"]
 	}
 	return ""
+}
+
+func (self *Path) equals(other *Path) bool {
+	if self == other {
+		return true
+	}
+	if other == nil {
+		return false
+	}
+	if self.Domain != other.Domain || self.Mailbox != other.Mailbox || self.Params != other.Params || len(self.Relays) != len(other.Relays) {
+		return false
+	}
+	for i := range self.Relays {
+		if self.Relays[i] != other.Relays[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func toPathes(xs []string) []*Path {
+	var arr []*Path
+	for _, x := range xs {
+		as, err := mail.ParseAddressList(x)
+		if err != nil {
+			continue
+		}
+		for _, a := range as {
+			arr = append(arr, PathFromString(a.Address))
+		}
+	}
+	return arr
+}
+
+func remove(s []*Path, i int) []*Path {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}
+
+func indexOf(xs []*Path, y *Path) int {
+	for i, x := range xs {
+		if x.equals(y) {
+			return i
+		}
+	}
+	return -1
+}
+
+func extractBcc(allTos []*Path, content *Content) []*Path {
+	var tos = toPathes(content.Headers["To"])
+	var ccs = toPathes(content.Headers["Cc"])
+	var arr []*Path
+	for _, path := range allTos {
+		if i := indexOf(tos, path); i != -1 {
+			tos = remove(tos, i)
+			continue
+		}
+		if i := indexOf(ccs, path); i != -1 {
+			tos = remove(ccs, i)
+			continue
+		}
+
+		arr = append(arr, path)
+	}
+	return arr
 }
