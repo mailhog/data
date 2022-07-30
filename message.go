@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+	"io/ioutil"
 	"log"
 	"mime"
+	"mime/multipart"
+	"net/mail"
 	"strings"
 	"time"
 )
@@ -226,25 +229,26 @@ func (content *Content) ParseMIMEBody() *MIMEBody {
 	var parts []*Content
 
 	if hdr, ok := content.Headers["Content-Type"]; ok {
-		if len(hdr) > 0 {
-			boundary := extractBoundary(hdr[0])
-			var p []string
-			if len(boundary) > 0 {
-				p = strings.Split(content.Body, "--"+boundary)
-				logf("Got boundary: %s", boundary)
-			} else {
-				logf("Boundary not found: %s", hdr[0])
-			}
-
-			for _, s := range p {
-				if len(s) > 0 {
-					part := ContentFromString(strings.Trim(s, "\r\n"))
-					if part.IsMIME() {
-						logf("Parsing inner MIME body")
-						part.MIME = part.ParseMIMEBody()
-					}
-					parts = append(parts, part)
+		boundary := extractBoundary(hdr[0])
+		if boundary != "" {
+			reader := strings.NewReader(content.Body)
+			multipart_reader := multipart.NewReader(reader, boundary)
+			for {
+				p, err := multipart_reader.NextPart()
+				if err == io.EOF {
+					break
 				}
+				slurp, _ := ioutil.ReadAll(p)
+				part := &Content{
+					Size:    len(slurp),
+					Headers: p.Header,
+					Body:    string(slurp),
+				}
+				if part.IsMIME() {
+					logf("Parsing inner MIME body")
+					part.MIME = part.ParseMIMEBody()
+				}
+				parts = append(parts, part)
 			}
 		}
 	}
@@ -283,39 +287,23 @@ func PathFromString(path string) *Path {
 // ContentFromString parses SMTP content into separate headers and body
 func ContentFromString(data string) *Content {
 	logf("Parsing Content from string: '%s'", data)
-	x := strings.SplitN(data, "\r\n\r\n", 2)
-	h := make(map[string][]string, 0)
 
-	// FIXME this fails if the message content has no headers - specifically,
-	// if it doesn't contain \r\n\r\n
+	reader := strings.NewReader(data)
+	msg, err := mail.ReadMessage(reader)
 
-	if len(x) == 2 {
-		headers, body := x[0], x[1]
-		hdrs := strings.Split(headers, "\r\n")
-		var lastHdr = ""
-		for _, hdr := range hdrs {
-			if lastHdr != "" && (strings.HasPrefix(hdr, " ") || strings.HasPrefix(hdr, "\t")) {
-				h[lastHdr][len(h[lastHdr])-1] = h[lastHdr][len(h[lastHdr])-1] + hdr
-			} else if strings.Contains(hdr, ": ") {
-				y := strings.SplitN(hdr, ": ", 2)
-				key, value := y[0], y[1]
-				// TODO multiple header fields
-				h[key] = []string{value}
-				lastHdr = key
-			} else if len(hdr) > 0 {
-				logf("Found invalid header: '%s'", hdr)
-			}
-		}
+	if err == nil {
+		body, _ := ioutil.ReadAll(msg.Body)
+		logf("Headers: %s\nBody: %s\n", msg.Header, body)
 		return &Content{
-			Size:    len(data),
-			Headers: h,
-			Body:    body,
+			Size:    len(body),
+			Headers: msg.Header,
+			Body:    string(body),
 		}
 	}
 	return &Content{
 		Size:    len(data),
-		Headers: h,
-		Body:    x[0],
+		Headers: make(map[string][]string, 0),
+		Body:    data,
 	}
 }
 
